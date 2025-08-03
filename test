@@ -1,0 +1,37 @@
+import { pgTable, serial, text, jsonb, timestamp } from 'drizzle-orm/pg-core';
+
+export const problems = pgTable('problems', {
+  id: serial('id').primaryKey(),
+  title: text('title').notNull(),
+  slug: text('slug').notNull().unique(),
+  description: text('description').notNull(),
+  difficulty: text('difficulty').notNull(), // Easy | Medium | Hard
+  starterCode: jsonb('starter_code').notNull(), // { javascript: "..." }
+  testCasesRun: jsonb('test_cases_run').notNull(), // [{ input: "", output: "" }]
+  testCasesSubmit: jsonb('test_cases_submit').notNull(), // [{ input: "", output: "" }]
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// drizzle/submissions.ts
+import { pgTable, serial, text, integer, jsonb, timestamp, uuid } from 'drizzle-orm/pg-core';
+
+export const submissions = pgTable('submissions', {
+  id: serial('id').primaryKey(),
+  userId: uuid('user_id').notNull(),
+  problemId: integer('problem_id').notNull(),
+  language: text('language').notNull(),
+  code: text('code').notNull(),
+  status: text('status').notNull(), // "Accepted" | "Wrong Answer" | "Runtime Error" | "Partial"
+  output: jsonb('output').notNull(), // result of each test case
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+// drizzle/user_progress.ts
+import { pgTable, uuid, integer, text, timestamp } from 'drizzle-orm/pg-core';
+
+export const userProgress = pgTable('user_progress', {
+  userId: uuid('user_id').notNull(),
+  problemId: integer('problem_id').notNull(),
+  status: text('status').default('unsolved'), // "unsolved" | "solved"
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
