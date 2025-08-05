@@ -3,9 +3,27 @@
 import { useState, useEffect, useCallback } from "react"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { DataTablePagination } from "@/components/data-table-pagination"
@@ -18,7 +36,7 @@ interface Problem {
   difficulty: "easy" | "medium" | "hard"
   category: string
   tags: string[]
-  stats: {
+  stats?: {
     acceptanceRate: number
   }
 }
@@ -32,7 +50,7 @@ export default function ProblemsList() {
   const [totalProblems, setTotalProblems] = useState(0)
   const [difficultyFilter, setDifficultyFilter] = useState<string | undefined>(undefined)
   const [categoryFilter, setCategoryFilter] = useState<string | undefined>(undefined)
-  const [searchQuery, setSearchQuery] = useState("") // Not yet implemented in API
+  const [searchQuery, setSearchQuery] = useState("")
 
   const fetchProblems = useCallback(async () => {
     setLoading(true)
@@ -41,11 +59,14 @@ export default function ProblemsList() {
         page: (pageIndex + 1).toString(),
         limit: pageSize.toString(),
       })
-      if (difficultyFilter) params.append("difficulty", difficultyFilter)
-      if (categoryFilter) params.append("category", categoryFilter)
-      // if (searchQuery) params.append("search", searchQuery); // Add this when API supports search
+      if (difficultyFilter && difficultyFilter !== "all") {
+        params.append("difficulty", difficultyFilter)
+      }
+      if (categoryFilter && categoryFilter !== "all") {
+        params.append("category", categoryFilter)
+      }
 
-      const response = await fetch(`/api/problem?${params.toString()}`)
+      const response = await fetch(`/api/problem/getproblem?${params.toString()}`)
       const data = await response.json()
 
       if (response.ok) {
@@ -66,7 +87,7 @@ export default function ProblemsList() {
     } finally {
       setLoading(false)
     }
-  }, [pageIndex, pageSize, difficultyFilter, categoryFilter]) // Add searchQuery when implemented
+  }, [pageIndex, pageSize, difficultyFilter, categoryFilter])
 
   useEffect(() => {
     fetchProblems()
@@ -90,14 +111,13 @@ export default function ProblemsList() {
       <h1 className="text-3xl font-bold">All Problems</h1>
       <p className="text-muted-foreground">Browse and solve coding challenges.</p>
 
-      {/* Filters and Search */}
+      {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <Input
           placeholder="Search problems..."
           className="max-w-sm flex-1"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          // Add onKeyPress or a search button to trigger fetch when API supports search
         />
         <Select value={difficultyFilter} onValueChange={setDifficultyFilter}>
           <SelectTrigger className="w-[180px]">
@@ -123,7 +143,6 @@ export default function ProblemsList() {
             <SelectItem value="dynamic-programming">Dynamic Programming</SelectItem>
             <SelectItem value="string">String</SelectItem>
             <SelectItem value="math">Math</SelectItem>
-            {/* Add more categories from your Problem model enum */}
           </SelectContent>
         </Select>
         {(difficultyFilter || categoryFilter || searchQuery) && (
@@ -133,7 +152,7 @@ export default function ProblemsList() {
               setDifficultyFilter(undefined)
               setCategoryFilter(undefined)
               setSearchQuery("")
-              setPageIndex(0) // Reset page when clearing filters
+              setPageIndex(0)
             }}
           >
             Clear Filters
@@ -152,7 +171,9 @@ export default function ProblemsList() {
               <span className="ml-2 text-gray-500">Loading problems...</span>
             </div>
           ) : problems.length === 0 ? (
-            <div className="text-center py-10 text-muted-foreground">No problems found matching your criteria.</div>
+            <div className="text-center py-10 text-muted-foreground">
+              No problems found matching your criteria.
+            </div>
           ) : (
             <div className="rounded-md border">
               <Table>
@@ -169,11 +190,10 @@ export default function ProblemsList() {
                   {problems.map((problem) => (
                     <TableRow key={problem._id}>
                       <TableCell>
-                        {/* Placeholder for status - would depend on user's submission history */}
                         <Badge variant="secondary">?</Badge>
                       </TableCell>
                       <TableCell className="font-medium">
-                        <Link href={`/problems/${problem.slug}`} className="hover:underline text-blue-600">
+                        <Link href={`/problem/${problem.slug}`} className="hover:underline text-blue-600">
                           {problem.title}
                         </Link>
                       </TableCell>
@@ -183,7 +203,11 @@ export default function ProblemsList() {
                         </span>
                       </TableCell>
                       <TableCell>{problem.category}</TableCell>
-                      <TableCell className="text-right">{problem.stats.acceptanceRate}%</TableCell>
+                      <TableCell className="text-right">
+                        {problem.stats?.acceptanceRate != null
+                          ? `${problem.stats.acceptanceRate}%`
+                          : "N/A"}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -193,7 +217,6 @@ export default function ProblemsList() {
         </CardContent>
       </Card>
 
-      {/* Pagination Controls */}
       {!loading && problems.length > 0 && (
         <DataTablePagination
           pageIndex={pageIndex}

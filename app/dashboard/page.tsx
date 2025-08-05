@@ -39,21 +39,35 @@ export default function ProblemCreator() {
   const [category, setCategory] = useState("")
   const [tags, setTags] = useState<string[]>([])
   const [newTag, setNewTag] = useState("")
-
+  const [slug, setSlug] = useState("")
   const [examples, setExamples] = useState<Example[]>([{ id: "1", input: "", output: "", explanation: "" }])
-
   const [constraints, setConstraints] = useState<Constraint[]>([{ id: "1", description: "" }])
-
   const [testCases, setTestCases] = useState<TestCase[]>([{ id: "1", input: "", expectedOutput: "", isHidden: false }])
-
   const [timeComplexity, setTimeComplexity] = useState("")
   const [spaceComplexity, setSpaceComplexity] = useState("")
   const [hints, setHints] = useState<string[]>([""])
   const [followUp, setFollowUp] = useState("")
-
   const [inputFormat, setInputFormat] = useState("")
   const [outputFormat, setOutputFormat] = useState("")
   const [functionSignature, setFunctionSignature] = useState("")
+
+  // Helper for JSON validation and stringification
+  function safeJSONStringify(val: string, field: string, context: string) {
+    try {
+      // Try to parse and re-stringify to ensure valid JSON
+      return JSON.stringify(JSON.parse(val))
+    } catch {
+      alert(
+        `${context} "${val}" is not valid JSON. Please enter ${field} as a valid JSON (e.g., {"l1": [2,4,3], "l2": [5,6,4]} or [7,0,8])`
+      )
+      throw new Error("Invalid input format")
+    }
+  }
+
+  const handletitle = (value: string) => {
+    setTitle(value)
+    setSlug(value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""))
+  }
 
   const addExample = () => {
     const newExample: Example = {
@@ -132,16 +146,39 @@ export default function ProblemCreator() {
     setHints(hints.filter((_, i) => i !== index))
   }
 
-  const handleSave = async() => {
+  const handleSave = async () => {
+    // Stringify and validate complex fields in examples
+    const processedExamples = examples.map((ex) => ({
+      ...ex,
+      input: ex.input.trim().startsWith("{")
+        ? safeJSONStringify(ex.input, "input", "Example input")
+        : ex.input,
+      output: ex.output.trim().startsWith("[")
+        ? safeJSONStringify(ex.output, "output", "Example output")
+        : ex.output,
+    }))
+
+    // Stringify and validate complex fields in testCases
+    const processedTestCases = testCases.map((tc) => ({
+      ...tc,
+      input: tc.input.trim().startsWith("{")
+        ? safeJSONStringify(tc.input, "input", "Test case input")
+        : tc.input,
+      expectedOutput: tc.expectedOutput.trim().startsWith("[")
+        ? safeJSONStringify(tc.expectedOutput, "expectedOutput", "Test case expectedOutput")
+        : tc.expectedOutput,
+    }))
+
     const problemData = {
       title,
+      slug,
       description,
       difficulty,
       category,
       tags,
-      examples,
+      examples: processedExamples,
       constraints,
-      testCases,
+      testCases: processedTestCases,
       timeComplexity,
       spaceComplexity,
       hints: hints.filter((h) => h.trim()),
@@ -150,8 +187,11 @@ export default function ProblemCreator() {
       outputFormat,
       functionSignature,
     }
+
     try {
-      const response = await axios.post("/api/problem/create", problemData)
+      const response = await axios.post("/api/problem/create", problemData, {
+        headers: { "Content-Type": "application/json" },
+      })
       if (response.status === 201) {
         alert("Problem saved successfully!")
         // Reset form or redirect as needed
@@ -165,11 +205,6 @@ export default function ProblemCreator() {
     }
   }
 
-  // const handlePreview = () => {
-  //   // Generate preview of the problem
-  //   alert("Preview functionality would show how the problem appears to users")
-  // }
-
   return (
     <div className="max-w-6xl mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -178,10 +213,6 @@ export default function ProblemCreator() {
           <p className="text-muted-foreground">Create comprehensive coding problems for any platform</p>
         </div>
         <div className="flex gap-2">
-          {/* <Button variant="outline" onClick={handlePreview}>
-            <Eye className="w-4 h-4 mr-2" />
-            Preview
-          </Button> */}
           <Button onClick={handleSave}>
             <Save className="w-4 h-4 mr-2" />
             Save Problem
@@ -190,7 +221,6 @@ export default function ProblemCreator() {
       </div>
 
       <Tabs defaultValue="basic" className="w-full">
-        {/* upporere tab part */}
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="basic">Basic Info</TabsTrigger>
           <TabsTrigger value="examples">Examples</TabsTrigger>
@@ -213,7 +243,7 @@ export default function ProblemCreator() {
                     id="title"
                     placeholder="e.g., Add Two Numbers"
                     value={title}
-                    onChange={(e) => setTitle(e.target.value)}
+                    onChange={(e) => handletitle(e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
@@ -354,7 +384,7 @@ export default function ProblemCreator() {
                     <div className="space-y-2">
                       <Label>Input</Label>
                       <Textarea
-                        placeholder="l1 = [2,4,3], l2 = [5,6,4]"
+                        placeholder='{"l1": [2,4,3], "l2": [5,6,4]}'
                         value={example.input}
                         onChange={(e) => updateExample(example.id, "input", e.target.value)}
                         rows={3}
@@ -425,7 +455,14 @@ export default function ProblemCreator() {
           <Card>
             <CardHeader>
               <CardTitle>Test Cases</CardTitle>
-              <CardDescription>Create test cases to validate solutions</CardDescription>
+              <CardDescription>
+                Create test cases to validate solutions. <br />
+                <span className="text-xs text-muted-foreground">
+                  <b>Input:</b> Use valid JSON, e.g., {"{\"l1\": [2,4,3], \"l2\": [5,6,4]}"}
+                  <br />
+                  <b>Expected Output:</b> Use valid JSON, e.g., [7,0,8]
+                </span>
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {testCases.map((testCase, index) => (
@@ -453,7 +490,7 @@ export default function ProblemCreator() {
                     <div className="space-y-2">
                       <Label>Input</Label>
                       <Textarea
-                        placeholder="Test input..."
+                        placeholder='{"l1": [2,4,3], "l2": [5,6,4]}'
                         value={testCase.input}
                         onChange={(e) => updateTestCase(testCase.id, "input", e.target.value)}
                         rows={3}
@@ -462,7 +499,7 @@ export default function ProblemCreator() {
                     <div className="space-y-2">
                       <Label>Expected Output</Label>
                       <Textarea
-                        placeholder="Expected output..."
+                        placeholder="[7,0,8]"
                         value={testCase.expectedOutput}
                         onChange={(e) => updateTestCase(testCase.id, "expectedOutput", e.target.value)}
                         rows={3}
